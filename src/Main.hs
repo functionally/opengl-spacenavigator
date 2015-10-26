@@ -1,0 +1,134 @@
+module Main where
+
+
+import Data.Default (def)
+import Data.IORef (IORef, newIORef)
+import Graphics.Rendering.OpenGL (ClearBuffer(..), Color3(..), ComparisonFunction(Less), GLfloat, Position(..), PrimitiveMode(..), Size(..), Vector3(..), Vertex3(..), ($=), ($=!), clear, color, depthFunc, get, loadIdentity, preservingMatrix, renderPrimitive, rotate, translate, vertex, viewport)
+import Graphics.UI.GLUT (DisplayCallback, DisplayMode(..), ReshapeCallback, createWindow, displayCallback, getArgsAndInitialize, idleCallback, initialDisplayMode, mainLoop, postRedisplay, reshapeCallback, swapBuffers)
+import Graphics.UI.SpaceNavigator (SpaceNavigatorTrack(..), defaultQuantization, defaultTracking, doTracking, quantizeSpaceNavigator, spaceNavigatorCallback, trackSpaceNavigator)
+
+
+main :: IO ()
+main =
+  do
+    (_, arguments) <- getArgsAndInitialize
+    initialDisplayMode $= [WithDepthBuffer, DoubleBuffered]
+    _ <- createWindow "SpaceNavigator "
+    depthFunc $= Just Less 
+    reshapeCallback $= Just reshape
+    dispatch arguments
+
+
+reshape :: ReshapeCallback
+reshape (Size w h) = 
+  viewport $= (Position 0 0, Size (minimum [w, h]) (minimum[w, h]))
+
+
+dispatch :: [String] -> IO ()
+
+dispatch ["raw"] =
+  do 
+    spaceNavigatorCallback $=! Just print
+    displayCallback $=! display Nothing
+    mainLoop
+
+dispatch ["quantized"] =
+  let
+     (pushThreshold, tiltThreshold) = defaultQuantization
+  in
+    dispatch ["quantized", show pushThreshold, show tiltThreshold]
+
+dispatch ["quantized", pushThreshold, tiltThreshold] =
+  do
+    spaceNavigatorCallback $=! Just (quantizeSpaceNavigator (read pushThreshold, read tiltThreshold) print)
+    displayCallback $=! display Nothing
+    mainLoop
+
+dispatch ["track"] =
+  let
+     (pushThreshold, tiltThreshold) = defaultQuantization
+  in
+    dispatch ["track", show pushThreshold, show tiltThreshold]
+
+dispatch ["track", pushThreshold, tiltThreshold] =
+  do
+    tracking <- newIORef $ def {spaceNavigatorPosition = Vector3 0 0 0.5}
+    spaceNavigatorCallback $=! Just
+      (
+        quantizeSpaceNavigator (read pushThreshold, read tiltThreshold)
+          $ \input ->
+            do
+              trackSpaceNavigator defaultTracking tracking input
+              tracking' <- get tracking
+              print tracking'
+      )
+    displayCallback $=! display (Just tracking)
+    idleCallback $=! Just (postRedisplay Nothing)
+    mainLoop
+
+dispatch _ =
+  do
+    putStrLn "Usage:"
+    putStrLn "  opengl-spacenavigator raw                                     : prints raw data from SpaceNavigator"
+    putStrLn "  opengl-spacenavigator quantized [pushThreshold tiltThreshold] : prints quantized data from SpaceNavigator"
+    putStrLn "  opengl-spacenavigator track [pushThreshold tiltThreshold]     : prints 6D tracking based on data from SpaceNavigator"
+
+
+display :: Maybe (IORef SpaceNavigatorTrack) -> DisplayCallback
+display (Just tracking) =
+  do
+    let
+      (u, v, w) = (0.03, 0.06, 0.18) :: (GLfloat, GLfloat, GLfloat)
+      p0 = ( 0,  0, w)
+      p1 = (-u, -u, 0)
+      p2 = ( u, -u, 0)
+      p3 = ( 0,  v, 0)
+    tracking' <- get tracking
+    clear [ColorBuffer, DepthBuffer]
+    loadIdentity
+    preservingMatrix $ do
+      doTracking tracking'
+      color $ Color3 1.0 0.4 (0.5 :: GLfloat)
+      renderPrimitive Triangles
+        $ mapM_ vertex3f
+        [
+          p1, p2, p3
+        , p1, p2, p0
+        , p1, p0, p3
+        , p0, p2, p3
+        ]
+      color $ Color3 1 1 (1 :: GLfloat)
+      renderPrimitive Lines
+        $ mapM_ vertex3f
+        [
+          p1, p2
+        , p2, p3
+        , p3, p1
+        , p1, p0
+        , p2, p0
+        , p3, p0
+        ]
+    display Nothing
+display Nothing =
+  do
+    color $ Color3 0.5 1.0 (0.4 :: GLfloat)
+    rotate 5 $ Vector3 1 2 (0 :: GLfloat)
+    translate $ Vector3 0.04 0.08 (0 :: GLfloat)
+    renderPrimitive Lines
+      $ mapM_ vertex3f
+      $ concat
+      [
+        [
+          (2 * u - 1, 2 * v - 1, 0.1), (2 * u - 1, 2 * v - 1, 0.9)
+        , (2 * u - 1, -0.8     , v  ), (2 * u - 1, 0.8      , v  )
+        , (-0.8     , 2 * u - 1, v  ), (0.8      , 2 * u - 1, v  )
+        ]
+      |
+        u <- [0.1,0.2..0.9]
+      , v <- [0.1,0.2..0.9]
+      ]
+    swapBuffers
+
+
+vertex3f :: (GLfloat, GLfloat, GLfloat) -> IO ()
+vertex3f (x, y, z) = vertex $ Vertex3 x y z
