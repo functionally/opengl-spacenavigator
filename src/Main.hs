@@ -20,7 +20,7 @@ import Data.Default (def)
 import Data.IORef (IORef, newIORef)
 import Graphics.Rendering.OpenGL (ClearBuffer(..), Color3(..), ComparisonFunction(Less), GLfloat, MatrixMode(Modelview, Projection), Position(..), PrimitiveMode(..), Size(..), Vector3(..), Vertex3(..), ($=), ($=!), clear, color, depthFunc, flush, frustum, get, loadIdentity, matrixMode, preservingMatrix, renderPrimitive, rotate, translate, vertex, viewport)
 import Graphics.UI.GLUT (DisplayCallback, DisplayMode(..), ReshapeCallback, createWindow, displayCallback, getArgsAndInitialize, idleCallback, initialDisplayMode, mainLoop, postRedisplay, reshapeCallback, swapBuffers)
-import Graphics.UI.SpaceNavigator (Track(..), defaultQuantization, defaultTracking, doTracking, quantize, spaceNavigatorCallback, track)
+import Graphics.UI.SpaceNavigator (Track(..), defaultQuantization, defaultTracking, doTracking', quantize, spaceNavigatorCallback, track)
 
 
 -- | The main action.
@@ -107,13 +107,12 @@ display (Just tracking) =
       p1 = (-u, -u, 0)
       p2 = ( u, -u, 0)
       p3 = ( 0,  v, 0)
-    tracking' <- get tracking
     clear [ColorBuffer, DepthBuffer]
     loadIdentity
     rotate 10 $ Vector3 1 2 (0 :: GLfloat)
     translate $ Vector3 0.5 (-0.2) (-3.5 :: GLfloat)
     preservingMatrix $ do
-      doTracking tracking'
+      doTracking' tracking
       color $ Color3 1.0 0.4 (0.5 :: GLfloat)
       renderPrimitive Triangles
         $ mapM_ vertex3f

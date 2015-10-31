@@ -1,5 +1,5 @@
 name:                opengl-spacenavigator
-version:             0.1.2.0
+version:             0.1.3.0
 synopsis:            Library and example for using a SpaceNavigator-compatible 3-D mouse with OpenGL
 description:         This package contains functions for managing input from a SpaceNavigator \<<http://www.3dconnexion.com/products/spacemouse/spacenavigator.html>\>, or a 3D mouse compatible with its protocols.  OpenGL callbacks are provided, along with utilities for quantizing the input from the mouse or tracking its six degrees of freedom.
 license:             MIT
@@ -13,7 +13,7 @@ cabal-version:       >=1.10
 stability:           Stable
 homepage:            https://bitbucket.org/bwbush/opengl-spacenavigator
 bug-reports:         https://bwbush.atlassian.net/projects/HOGLSPNV/issues/
-package-url:         https://bitbucket.org/bwbush/opengl-spacenavigator/downloads/opengl-spacenavigator-0.1.2.0.tar.gz
+package-url:         https://bitbucket.org/bwbush/opengl-spacenavigator/downloads/opengl-spacenavigator-0.1.3.0.tar.gz
 
 extra-source-files:  ReadMe.md
 

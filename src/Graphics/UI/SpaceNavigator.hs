@@ -75,6 +75,7 @@ module Graphics.UI.SpaceNavigator (
 , defaultTracking
 , track
 , doTracking
+, doTracking'
 ) where
 
 
@@ -82,8 +83,8 @@ import Control.Applicative ((<*>), (<$>))
 import Control.Monad (when)
 import Data.Default (Default(..))
 import Data.IORef (IORef)
-import Graphics.Rendering.OpenGL (GLfloat, Vector3(..), rotate, translate)
-import Graphics.UI.GLUT (KeyState(..), SettableStateVar, SpaceballInput(..), ($=!), ($~!), makeSettableStateVar, spaceballCallback)
+import Graphics.Rendering.OpenGL (GLfloat, SettableStateVar, Vector3(..), ($=!), ($~!), get, makeSettableStateVar, rotate, translate)
+import Graphics.UI.GLUT (KeyState(..), SpaceballInput(..), spaceballCallback)
 
 
 -- | Input received from a SpaceNavigator 3D mouse.
@@ -318,3 +319,11 @@ doTracking Track{..} =
     rotate gamma $ Vector3 1 0 0
     rotate beta  $ Vector3 0 1 0
     rotate alpha $ Vector3 0 0 1
+
+
+-- | Return an action to track a SpaceNavigator 3D mouse via OpenGL matrices.
+--
+-- This simply calls @glTranslate@ on the position, followed by calls to @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
+doTracking' :: IORef Track -- ^ A reference to the tracking information.
+            -> IO ()       -- ^ An action to track the mouse.
+doTracking' = (doTracking =<<) . get
