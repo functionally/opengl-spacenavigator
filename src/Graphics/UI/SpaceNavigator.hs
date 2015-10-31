@@ -62,18 +62,18 @@ This code has been validated with the following configuration of hardware and so
 module Graphics.UI.SpaceNavigator (
 -- * Input
   SpaceNavigatorInput(..)
-, SpaceNavigatorButton(..)
-, SpaceNavigatorAction(..)
+, Button(..)
+, ButtonAction(..)
 , SpaceNavigatorCallback
 , spaceNavigatorCallback
 -- * Quantization
-, quantizeSpaceNavigator
+, quantize
 , defaultQuantization
 -- * Tracking
-, SpaceNavigatorTrack(..)
-, SpaceNavigatorMode(..)
+, Track(..)
+, TrackMode(..)
 , defaultTracking
-, trackSpaceNavigator
+, track
 , doTracking
 ) where
 
@@ -89,40 +89,40 @@ import Graphics.UI.GLUT (KeyState(..), SettableStateVar, SpaceballInput(..), ($=
 -- | Input received from a SpaceNavigator 3D mouse.
 data SpaceNavigatorInput =
       -- | The mouse has been pushed.
-      SpaceNavigatorPush
+      Push
       {
-        pushRightward :: GLfloat             -- ^ The amount of rightward push, from -1 to +1.
-      , pushUpward    :: GLfloat             -- ^ The amount of upward push, from -1 to +1.
-      , pushBackward  :: GLfloat             -- ^ The amount of backward push, from -1 to +1.
+        pushRightward :: GLfloat       -- ^ The amount of rightward push, from -1 to +1.
+      , pushUpward    :: GLfloat       -- ^ The amount of upward push, from -1 to +1.
+      , pushBackward  :: GLfloat       -- ^ The amount of backward push, from -1 to +1.
       }
       -- | The mouse has been tilted.
-    | SpaceNavigatorTilt
+    | Tilt
       {
-        tiltForward   :: GLfloat             -- ^ The amount of forward tilt, from -1 to +1.
-      , tiltClockwise :: GLfloat             -- ^ The amount of clockwise twist, from -1 to +1.
-      , tiltRightward :: GLfloat             -- ^ The amount of rightward tilt, from -1 to +1.
+        tiltForward   :: GLfloat       -- ^ The amount of forward tilt, from -1 to +1.
+      , tiltClockwise :: GLfloat       -- ^ The amount of clockwise twist, from -1 to +1.
+      , tiltRightward :: GLfloat       -- ^ The amount of rightward tilt, from -1 to +1.
       }
       -- | A mouse button has been pressed.
-    | SpaceNavigatorButton
+    | Button
       {
-        buttonPress  :: SpaceNavigatorButton -- ^ Which button has been pressed.
-      , buttonAction :: SpaceNavigatorAction -- ^ Whether the button has been pressed or released.
+        buttonPress  :: Button         -- ^ Which button has been pressed.
+      , buttonAction :: ButtonAction   -- ^ Whether the button has been pressed or released.
       }
       deriving (Eq, Read, Show)
 
 
 -- | Buttons on a SpaceNavigator 3D mouse.
-data SpaceNavigatorButton =
-    SpaceNavigatorLeft       -- ^ The left button.
-  | SpaceNavigatorRight      -- ^ The right button.
-  | SpaceNavigatorOther Int  -- ^ Neither the left nor the right button.
+data Button =
+    ButtonLeft       -- ^ The left button.
+  | ButtonRight      -- ^ The right button.
+  | ButtonOther Int  -- ^ Neither the left nor the right button.
     deriving (Eq, Read, Show)
 
 
 -- | Pressing and releasing actions on a SpaceNavigator 3D mouse.
-data SpaceNavigatorAction =
-    SpaceNavigatorPress   -- ^ The button has been pressed.
-  | SpaceNavigatorRelease -- ^ The button has been released.
+data ButtonAction =
+    ButtonPress   -- ^ The button has been pressed.
+  | ButtonRelease -- ^ The button has been released.
     deriving (Eq, Read, Show)
 
 
@@ -130,29 +130,29 @@ data SpaceNavigatorAction =
 interpretSpaceball :: SpaceballInput      -- ^ The SpaceBall input.
                    -> SpaceNavigatorInput -- ^ The corresponding SpaceNavigator input.
 interpretSpaceball (SpaceballMotion rightward upward forward) =
-  SpaceNavigatorPush
+  Push
   {
     pushRightward =   fromIntegral rightward / 1000
   , pushUpward    =   fromIntegral upward    / 1000
-  , pushBackward  = -  fromIntegral forward  / 1000
+  , pushBackward  = - fromIntegral forward   / 1000
   }
 interpretSpaceball (SpaceballRotation backward counterClockwise rightward) =
-  SpaceNavigatorTilt
+  Tilt
   {
     tiltForward   = - fromIntegral backward         / 1800
   , tiltClockwise = - fromIntegral counterClockwise / 1800
   , tiltRightward =   fromIntegral rightward        / 1800
   }
 interpretSpaceball (SpaceballButton button keyState) =
-  SpaceNavigatorButton
+  Button
   {
     buttonPress  = case button of
-                     0 -> SpaceNavigatorLeft
-                     1 -> SpaceNavigatorRight
-                     i -> SpaceNavigatorOther i
+                     0 -> ButtonLeft
+                     1 -> ButtonRight
+                     i -> ButtonOther i
   , buttonAction = case keyState of
-                     Down -> SpaceNavigatorPress
-                     Up   -> SpaceNavigatorRelease
+                     Down -> ButtonPress
+                     Up   -> ButtonRelease
   }
 
 
@@ -171,26 +171,26 @@ spaceNavigatorCallback =
 
 
 -- | Quantize the input from a SpaceNavigator 3D mouse according to whether the input exceeds a threshold.  The quantized input is -1, +1, or 0, depending on whether a threshold is exceeded.
-quantizeSpaceNavigator :: (GLfloat, GLfloat)     -- ^ The thresholds for pushing and titling, respectively, between 0 and +1.
-                       -> SpaceNavigatorCallback -- ^ The callback for the mouse.
-                       -> SpaceNavigatorCallback -- ^ A callback that receives quantized input {-1, 0, +1}.
-quantizeSpaceNavigator (pushThreshold, tiltThreshold) callback input =
+quantize:: (GLfloat, GLfloat)     -- ^ The thresholds for pushing and titling, respectively, between 0 and +1.
+        -> SpaceNavigatorCallback -- ^ The callback for the mouse.
+        -> SpaceNavigatorCallback -- ^ A callback that receives quantized input {-1, 0, +1}.
+quantize (pushThreshold, tiltThreshold) callback input =
   do
     let
-      quantize threshold v
+      quantize' threshold v
         | v >   threshold' =  1
         | v < - threshold' = -1
         | otherwise        =  0
           where threshold' = abs threshold
       input' =
         case input of
-          SpaceNavigatorPush x y z -> SpaceNavigatorPush (quantize pushThreshold x) (quantize pushThreshold y) (quantize pushThreshold z)
-          SpaceNavigatorTilt x y z -> SpaceNavigatorTilt (quantize tiltThreshold x) (quantize tiltThreshold y) (quantize tiltThreshold z)
+          Push x y z -> Push (quantize' pushThreshold x) (quantize' pushThreshold y) (quantize' pushThreshold z)
+          Tilt x y z -> Tilt (quantize' tiltThreshold x) (quantize' tiltThreshold y) (quantize' tiltThreshold z)
           b                        -> b
       report =
         case input' of
-          SpaceNavigatorPush x y z -> any (/= 0) [x, y, z]
-          SpaceNavigatorTilt x y z -> any (/= 0) [x, y, z]
+          Push x y z -> any (/= 0) [x, y, z]
+          Tilt x y z -> any (/= 0) [x, y, z]
           _                        -> True
     when report
       $ callback input'
@@ -202,25 +202,25 @@ defaultQuantization = (0.2, 0.1)
 
 
 -- | Tracking information for a SpaceNavigator 3D mouse.
-data SpaceNavigatorTrack =
-  SpaceNavigatorTrack
+data Track =
+  Track
   {
-    spaceNavigatorMode        :: SpaceNavigatorMode -- ^ The tracking mode.
-  , spaceNavigatorPosition    :: Vector3 GLfloat    -- ^ The coordinates for the position.
-  , spaceNavigatorOrientation :: Vector3 GLfloat    -- ^ The Euler angles for the orientation: yaw\/heading, pitch\/elevation, and roll\/bank, relative an initial orientation where the /-z/ axis is forward: see \<<https://en.wikipedia.org/wiki/Euler_angles#Alternative_names>\>.
-  , spaceNavigatorLeftPress   :: Bool               -- ^ Whether the left button is pressed.
-  , spaceNavigatorRightPress  :: Bool               -- ^ Whether the right button is pressed.
+    trackMode        :: TrackMode       -- ^ The tracking mode.
+  , trackPosition    :: Vector3 GLfloat -- ^ The coordinates for the position.
+  , trackOrientation :: Vector3 GLfloat -- ^ The Euler angles for the orientation: yaw\/heading, pitch\/elevation, and roll\/bank, relative an initial orientation where the /-z/ axis is forward: see \<<https://en.wikipedia.org/wiki/Euler_angles#Alternative_names>\>.
+  , trackLeftPress   :: Bool            -- ^ Whether the left button is pressed.
+  , trackRightPress  :: Bool            -- ^ Whether the right button is pressed.
   }
     deriving (Eq, Read, Show)
 
-instance Default SpaceNavigatorTrack where
-  def = SpaceNavigatorTrack def (Vector3 0 0 0) (Vector3 0 0 0) False False
+instance Default Track where
+  def = Track def (Vector3 0 0 0) (Vector3 0 0 0) False False
 
 
 -- | The mode for tracking a SpaceNavigator 3D mouse.
 --
 -- /Currently only one mode is available, but other modes, such as flying and examining, will be implemented in the future./
-data SpaceNavigatorMode =
+data TrackMode =
   -- | Track the mouse as a \"platform\" in 3D space:
   --
   --   [push rightward] increment /x/ position
@@ -246,42 +246,42 @@ data SpaceNavigatorMode =
   --   [tilt backward] increment third Euler angle, roll\/bank
   --
   --   [tilt forward] decrement third Euler angle, roll\/bank
-  SpaceNavigatorPlatform
+  TrackPlatform
     deriving (Eq, Read, Show)
 
-instance Default SpaceNavigatorMode where
-  def = SpaceNavigatorPlatform
+instance Default TrackMode where
+  def = TrackPlatform
 
 
 -- | Track the movement of a SpaceNavigator 3D mouse.
-trackSpaceNavigator :: (Vector3 GLfloat, Vector3 GLfloat) -- ^ The rates at which to push or tilt, respectively, based on the mouse input.
-                    -> IORef SpaceNavigatorTrack          -- ^ A reference to the tracking information.
-                    -> SpaceNavigatorCallback             -- ^ A callback for doing the tracking.
-trackSpaceNavigator (pushRates, _) tracking SpaceNavigatorPush{..} =
+track :: (Vector3 GLfloat, Vector3 GLfloat) -- ^ The rates at which to push or tilt, respectively, based on the mouse input.
+      -> IORef Track                        -- ^ A reference to the tracking information.
+      -> SpaceNavigatorCallback             -- ^ A callback for doing the tracking.
+track (pushRates, _) tracking Push{..} =
   tracking $~!
-    \t@SpaceNavigatorTrack{..} ->
+    \t@Track{..} ->
       t {
-          spaceNavigatorPosition = (pushRates `scale3` Vector3 pushRightward pushUpward pushBackward) `translate3` spaceNavigatorPosition
+          trackPosition = (pushRates `scale3` Vector3 pushRightward pushUpward pushBackward) `translate3` trackPosition
         }
-trackSpaceNavigator (_, tiltRates) tracking SpaceNavigatorTilt{..} =
+track (_, tiltRates) tracking Tilt{..} =
   tracking $~!
-    \t@SpaceNavigatorTrack{..} ->
+    \t@Track{..} ->
       t {
-          spaceNavigatorOrientation = (tiltRates `scale3` Vector3 (-tiltRightward) (-tiltClockwise) (-tiltForward)) `translate3` spaceNavigatorOrientation
+          trackOrientation = (tiltRates `scale3` Vector3 (-tiltRightward) (-tiltClockwise) (-tiltForward)) `translate3` trackOrientation
         }
-trackSpaceNavigator _ tracking (SpaceNavigatorButton SpaceNavigatorLeft action) =
-  tracking $~!
-    \t ->
-      t {
-          spaceNavigatorLeftPress = action == SpaceNavigatorPress
-        }
-trackSpaceNavigator _ tracking (SpaceNavigatorButton SpaceNavigatorRight action) =
+track _ tracking (Button ButtonLeft action) =
   tracking $~!
     \t ->
       t {
-          spaceNavigatorRightPress = action == SpaceNavigatorPress
+          trackLeftPress = action == ButtonPress
         }
-trackSpaceNavigator _ _ (SpaceNavigatorButton (SpaceNavigatorOther _) _) = return ()
+track _ tracking (Button ButtonRight action) =
+  tracking $~!
+    \t ->
+      t {
+          trackRightPress = action == ButtonPress
+        }
+track _ _ (Button (ButtonOther _) _) = return ()
 
 
 -- | Translate a 3-vector.
@@ -308,13 +308,13 @@ defaultTracking = (Vector3 0.01 0.01 0.01, Vector3 1 1 1)
 -- | Return an action to track a SpaceNavigator 3D mouse via OpenGL matrices.
 --
 -- This simply calls @glTranslate@ on the position, followed by calls to @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
-doTracking :: SpaceNavigatorTrack -- ^ The tracking information.
-           -> IO ()               -- ^ An action to track the mouse.
-doTracking SpaceNavigatorTrack{..} =
+doTracking :: Track -- ^ The tracking information.
+           -> IO () -- ^ An action to track the mouse.
+doTracking Track{..} =
   do
     let
-      Vector3 alpha beta gamma = spaceNavigatorOrientation
-    translate spaceNavigatorPosition
+      Vector3 alpha beta gamma = trackOrientation
+    translate trackPosition
     rotate gamma $ Vector3 1 0 0
     rotate beta  $ Vector3 0 1 0
     rotate alpha $ Vector3 0 0 1

@@ -20,7 +20,7 @@ import Data.Default (def)
 import Data.IORef (IORef, newIORef)
 import Graphics.Rendering.OpenGL (ClearBuffer(..), Color3(..), ComparisonFunction(Less), GLfloat, MatrixMode(Modelview, Projection), Position(..), PrimitiveMode(..), Size(..), Vector3(..), Vertex3(..), ($=), ($=!), clear, color, depthFunc, flush, frustum, get, loadIdentity, matrixMode, preservingMatrix, renderPrimitive, rotate, translate, vertex, viewport)
 import Graphics.UI.GLUT (DisplayCallback, DisplayMode(..), ReshapeCallback, createWindow, displayCallback, getArgsAndInitialize, idleCallback, initialDisplayMode, mainLoop, postRedisplay, reshapeCallback, swapBuffers)
-import Graphics.UI.SpaceNavigator (SpaceNavigatorTrack(..), defaultQuantization, defaultTracking, doTracking, quantizeSpaceNavigator, spaceNavigatorCallback, trackSpaceNavigator)
+import Graphics.UI.SpaceNavigator (Track(..), defaultQuantization, defaultTracking, doTracking, quantize, spaceNavigatorCallback, track)
 
 
 -- | The main action.
@@ -63,7 +63,7 @@ dispatch ["quantized"] =
 
 dispatch ["quantized", pushThreshold, tiltThreshold] =
   do
-    spaceNavigatorCallback $=! Just (quantizeSpaceNavigator (read pushThreshold, read tiltThreshold) print)
+    spaceNavigatorCallback $=! Just (quantize (read pushThreshold, read tiltThreshold) print)
     displayCallback $=! display Nothing
     mainLoop
 
@@ -75,13 +75,13 @@ dispatch ["track"] =
 
 dispatch ["track", pushThreshold, tiltThreshold] =
   do
-    tracking <- newIORef $ def {spaceNavigatorPosition = Vector3 0 0 0}
+    tracking <- newIORef $ def {trackPosition = Vector3 0 0 0}
     spaceNavigatorCallback $=! Just
       (
-        quantizeSpaceNavigator (read pushThreshold, read tiltThreshold)
+        quantize (read pushThreshold, read tiltThreshold)
           $ \input ->
             do
-              trackSpaceNavigator defaultTracking tracking input
+              track defaultTracking tracking input
               tracking' <- get tracking
               print tracking'
       )
@@ -98,7 +98,7 @@ dispatch _ =
 
 
 -- | The display callback.
-display :: Maybe (IORef SpaceNavigatorTrack) -> DisplayCallback
+display :: Maybe (IORef Track) -> DisplayCallback
 display (Just tracking) =
   do
     let
