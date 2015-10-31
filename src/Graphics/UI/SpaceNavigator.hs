@@ -71,6 +71,7 @@ module Graphics.UI.SpaceNavigator (
 , defaultQuantization
 -- * Tracking
 , SpaceNavigatorTrack(..)
+, SpaceNavigatorMode(..)
 , defaultTracking
 , trackSpaceNavigator
 , doTracking
@@ -133,7 +134,7 @@ interpretSpaceball (SpaceballMotion rightward upward forward) =
   {
     pushRightward =   fromIntegral rightward / 1000
   , pushUpward    =   fromIntegral upward    / 1000
-  , pushBackward  = -  fromIntegral forward   / 1000
+  , pushBackward  = -  fromIntegral forward  / 1000
   }
 interpretSpaceball (SpaceballRotation backward counterClockwise rightward) =
   SpaceNavigatorTilt
@@ -204,15 +205,52 @@ defaultQuantization = (0.2, 0.1)
 data SpaceNavigatorTrack =
   SpaceNavigatorTrack
   {
-    spaceNavigatorPosition   :: Vector3 GLfloat
-  , spaceNavigatorAngles     :: Vector3 GLfloat
-  , spaceNavigatorLeftPress  :: Bool
-  , spaceNavigatorRightPress :: Bool
+    spaceNavigatorMode        :: SpaceNavigatorMode -- ^ The tracking mode.
+  , spaceNavigatorPosition    :: Vector3 GLfloat    -- ^ The coordinates for the position.
+  , spaceNavigatorOrientation :: Vector3 GLfloat    -- ^ The Euler angles for the orientation: yaw\/heading, pitch\/elevation, and roll\/bank, relative an initial orientation where the /-z/ axis is forward: see \<<https://en.wikipedia.org/wiki/Euler_angles#Alternative_names>\>.
+  , spaceNavigatorLeftPress   :: Bool               -- ^ Whether the left button is pressed.
+  , spaceNavigatorRightPress  :: Bool               -- ^ Whether the right button is pressed.
   }
     deriving (Eq, Read, Show)
 
 instance Default SpaceNavigatorTrack where
-  def = SpaceNavigatorTrack (Vector3 0 0 0) (Vector3 0 0 0) False False
+  def = SpaceNavigatorTrack def (Vector3 0 0 0) (Vector3 0 0 0) False False
+
+
+-- | The mode for tracking a SpaceNavigator 3D mouse.
+--
+-- /Currently only one mode is available, but other modes, such as flying and examining, will be implemented in the future./
+data SpaceNavigatorMode =
+  -- | Track the mouse as a \"platform\" in 3D space:
+  --
+  --   [push rightward] increment /x/ position
+  --
+  --   [push leftward] decrement /x/ position
+  --
+  --   [pull upward] increment /z/ position
+  --
+  --   [push downward] decrement /z/ position
+  --
+  --   [pull backward] increment /z/ position
+  --
+  --   [push forward] decrement /z/ position
+  --
+  --   [tilt leftward] increment first Euler angle, yaw\/heading
+  --
+  --   [tilt rightward] decrement first Euler angle, yaw\/heading
+  --
+  --   [twist counterclockwise] increment second Euler angle, pitch\/elevation
+  --
+  --   [twist clockwise] decrement second Euler angle, pitch\/elevation
+  --
+  --   [tilt backward] increment third Euler angle, roll\/bank
+  --
+  --   [tilt forward] decrement third Euler angle, roll\/bank
+  SpaceNavigatorPlatform
+    deriving (Eq, Read, Show)
+
+instance Default SpaceNavigatorMode where
+  def = SpaceNavigatorPlatform
 
 
 -- | Track the movement of a SpaceNavigator 3D mouse.
@@ -229,7 +267,7 @@ trackSpaceNavigator (_, tiltRates) tracking SpaceNavigatorTilt{..} =
   tracking $~!
     \t@SpaceNavigatorTrack{..} ->
       t {
-          spaceNavigatorAngles = (tiltRates `scale3` Vector3 (-tiltRightward) (-tiltClockwise) (-tiltForward)) `translate3` spaceNavigatorAngles
+          spaceNavigatorOrientation = (tiltRates `scale3` Vector3 (-tiltRightward) (-tiltClockwise) (-tiltForward)) `translate3` spaceNavigatorOrientation
         }
 trackSpaceNavigator _ tracking (SpaceNavigatorButton SpaceNavigatorLeft action) =
   tracking $~!
@@ -268,12 +306,14 @@ defaultTracking = (Vector3 0.01 0.01 0.01, Vector3 1 1 1)
 
 
 -- | Return an action to track a SpaceNavigator 3D mouse via OpenGL matrices.
+--
+-- This simply calls @glTranslate@ on the position, followed by calls to @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
 doTracking :: SpaceNavigatorTrack -- ^ The tracking information.
            -> IO ()               -- ^ An action to track the mouse.
 doTracking SpaceNavigatorTrack{..} =
   do
     let
-      Vector3 alpha beta gamma = spaceNavigatorAngles
+      Vector3 alpha beta gamma = spaceNavigatorOrientation
     translate spaceNavigatorPosition
     rotate gamma $ Vector3 1 0 0
     rotate beta  $ Vector3 0 1 0
