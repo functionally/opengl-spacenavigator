@@ -13,7 +13,7 @@ cabal-version:       >=1.10
 stability:           Stable
 homepage:            https://bitbucket.org/bwbush/opengl-spacenavigator
 bug-reports:         https://bwbush.atlassian.net/projects/HOGLSPNV/issues/
-package-url:         https://bitbucket.org/bwbush/opengl-spacenavigator/downloads/opengl-spacenavigator-0.1.1.2.tar.gz
+package-url:         https://bitbucket.org/bwbush/opengl-spacenavigator/downloads/opengl-spacenavigator-0.1.2.0.tar.gz
 
 extra-source-files:  ReadMe.md
 
