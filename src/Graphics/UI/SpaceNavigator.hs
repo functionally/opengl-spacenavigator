@@ -1,17 +1,78 @@
+{-|
+Module      :  Graphics.UI.SpaceNavigator
+Copyright   :  (c) 2015 Brian W Bush
+License     :  MIT
+Maintainer  :  Brian W Bush <consult@brianwbush.info>
+Stability   :  Stable
+Portability :  Portable
+
+Functions for managing input from a SpaceNavigator \<<http://www.3dconnexion.com/products/spacemouse/spacenavigator.html>\>, or a 3D mouse compatible with its protocols.  OpenGL callbacks are provided, along with utilities for quantizing the input from the mouse or tracking its six degrees of freedom.
+
+Here is a simple example illustating the use of this module:
+
+@
+main :: IO ()
+main = do
+  _ <- getArgsAndInitialize
+  initialDisplayMode $= [WithDepthBuffer, DoubleBuffered]
+  _ <- createWindow \"SpaceNavigator OpenGL Example\"
+  depthFunc $= Just Less 
+  -- Create the tracker.
+  tracking <- newIORef $ def {spaceNavigatorPosition = Vector3 0 0 0}
+  -- Register a callback which quantizes and tracks the 3D mouse input.
+  spaceNavigatorCallback $=! Just ( quantizeSpaceNavigator defaultQuantization $ trackSpaceNavigator defaultTracking tracking)
+  -- The display callback needs the tracker.
+  displayCallback $= display tracking
+  idleCallback $= Just (postRedisplay Nothing)
+  mainLoop
+
+display :: IORef SpaceNavigatorTrack -> DisplayCallback
+display tracking =
+  do
+    clear [ColorBuffer, DepthBuffer]
+    loadIdentity
+    -- Get the tracking state.
+    tracking' <- get tracking
+    -- Update the matrix based on the tracking
+    doTracking tracking'
+    -- All of the rendering actions go here.
+    renderPrimitive . . . 
+    swapBuffers
+@
+
+This code has been validated with the following configuration of hardware and software:
+
+*   SpaceNavigator \<<http://www.3dconnexion.com/products/spacemouse/spacenavigator.html>\>
+
+*   spacenavd \<<http://spacenav.sourceforge.net/>\>, 0.5
+
+*   Ubuntu 15.04, 64-bit
+
+*   GHC 7.6.3
+
+*   OpenGL == 2.8.0.0
+
+*   GLUT == 2.4.0.0
+-}
+
+
 {-# LANGUAGE RecordWildCards #-}
 
 
 module Graphics.UI.SpaceNavigator (
+-- * Input
   SpaceNavigatorInput(..)
 , SpaceNavigatorButton(..)
 , SpaceNavigatorAction(..)
 , SpaceNavigatorCallback
 , spaceNavigatorCallback
+-- * Quantization
 , quantizeSpaceNavigator
 , defaultQuantization
+-- * Tracking
 , SpaceNavigatorTrack(..)
-, trackSpaceNavigator
 , defaultTracking
+, trackSpaceNavigator
 , doTracking
 ) where
 
@@ -24,36 +85,49 @@ import Graphics.Rendering.OpenGL (GLfloat, Vector3(..), rotate, translate)
 import Graphics.UI.GLUT (KeyState(..), SettableStateVar, SpaceballInput(..), ($=!), ($~!), makeSettableStateVar, spaceballCallback)
 
 
+-- | Input received from a SpaceNavigator 3D mouse.
 data SpaceNavigatorInput =
+      -- | The mouse has been pushed.
       SpaceNavigatorPush
       {
-        pushRightward :: GLfloat
-      , pushUpward    :: GLfloat
-      , pushBackward  :: GLfloat
+        pushRightward :: GLfloat             -- ^ The amount of rightward push, from -1 to +1.
+      , pushUpward    :: GLfloat             -- ^ The amount of upward push, from -1 to +1.
+      , pushBackward  :: GLfloat             -- ^ The amount of backward push, from -1 to +1.
       }
+      -- | The mouse has been tilted.
     | SpaceNavigatorTilt
       {
-        tiltForward   :: GLfloat
-      , tiltClockwise :: GLfloat
-      , tiltRightward :: GLfloat
+        tiltForward   :: GLfloat             -- ^ The amount of forward tilt, from -1 to +1.
+      , tiltClockwise :: GLfloat             -- ^ The amount of clockwise twist, from -1 to +1.
+      , tiltRightward :: GLfloat             -- ^ The amount of rightward tilt, from -1 to +1.
       }
+      -- | A mouse button has been pressed.
     | SpaceNavigatorButton
       {
-        buttonPress  :: SpaceNavigatorButton
-      , buttonAction :: SpaceNavigatorAction
+        buttonPress  :: SpaceNavigatorButton -- ^ Which button has been pressed.
+      , buttonAction :: SpaceNavigatorAction -- ^ Whether the button has been pressed or released.
       }
       deriving (Eq, Read, Show)
 
 
-data SpaceNavigatorButton = SpaceNavigatorLeft | SpaceNavigatorRight | SpaceNavigatorOther Int
-  deriving (Eq, Read, Show)
+-- | Buttons on a SpaceNavigator 3D mouse.
+data SpaceNavigatorButton =
+    SpaceNavigatorLeft       -- ^ The left button.
+  | SpaceNavigatorRight      -- ^ The right button.
+  | SpaceNavigatorOther Int  -- ^ Neither the left nor the right button.
+    deriving (Eq, Read, Show)
 
 
-data SpaceNavigatorAction = SpaceNavigatorPress | SpaceNavigatorRelease
-  deriving (Eq, Read, Show)
+-- | Pressing and releasing actions on a SpaceNavigator 3D mouse.
+data SpaceNavigatorAction =
+    SpaceNavigatorPress   -- ^ The button has been pressed.
+  | SpaceNavigatorRelease -- ^ The button has been released.
+    deriving (Eq, Read, Show)
 
 
-interpretSpaceball :: SpaceballInput -> SpaceNavigatorInput
+-- | Interpret SpaceBall input as SpaceNavigator input.
+interpretSpaceball :: SpaceballInput      -- ^ The SpaceBall input.
+                   -> SpaceNavigatorInput -- ^ The corresponding SpaceNavigator input.
 interpretSpaceball (SpaceballMotion rightward upward forward) =
   SpaceNavigatorPush
   {
@@ -81,9 +155,11 @@ interpretSpaceball (SpaceballButton button keyState) =
   }
 
 
+-- | A callback for input from the SpaceNavigator 3D mouse.
 type SpaceNavigatorCallback = SpaceNavigatorInput -> IO ()
 
 
+-- | Register the callback for input from the SpaceNavigator 3D mouse.
 spaceNavigatorCallback :: SettableStateVar (Maybe SpaceNavigatorCallback)
 spaceNavigatorCallback =
   makeSettableStateVar setSpaceNavigatorCallback
@@ -93,15 +169,19 @@ spaceNavigatorCallback =
       setSpaceNavigatorCallback (Just callback) = spaceballCallback $=! Just (callback . interpretSpaceball)
 
 
-quantizeSpaceNavigator :: (GLfloat, GLfloat) -> SpaceNavigatorCallback -> SpaceNavigatorCallback
+-- | Quantize the input from a SpaceNavigator 3D mouse according to whether the input exceeds a threshold.  The quantized input is -1, +1, or 0, depending on whether a threshold is exceeded.
+quantizeSpaceNavigator :: (GLfloat, GLfloat)     -- ^ The thresholds for pushing and titling, respectively, between 0 and +1.
+                       -> SpaceNavigatorCallback -- ^ The callback for the mouse.
+                       -> SpaceNavigatorCallback -- ^ A callback that receives quantized input {-1, 0, +1}.
 quantizeSpaceNavigator (pushThreshold, tiltThreshold) callback input =
   do
     let
       quantize threshold v
-        | v >   threshold =  1
-        | v < - threshold = -1
-        | otherwise       =  0
-      input' = 
+        | v >   threshold' =  1
+        | v < - threshold' = -1
+        | otherwise        =  0
+          where threshold' = abs threshold
+      input' =
         case input of
           SpaceNavigatorPush x y z -> SpaceNavigatorPush (quantize pushThreshold x) (quantize pushThreshold y) (quantize pushThreshold z)
           SpaceNavigatorTilt x y z -> SpaceNavigatorTilt (quantize tiltThreshold x) (quantize tiltThreshold y) (quantize tiltThreshold z)
@@ -115,10 +195,12 @@ quantizeSpaceNavigator (pushThreshold, tiltThreshold) callback input =
       $ callback input'
 
 
+-- | A default quantization for the SpaceNavigator 3D mouse.
 defaultQuantization :: (GLfloat, GLfloat)
 defaultQuantization = (0.2, 0.1)
 
 
+-- | Tracking information for a SpaceNavigator 3D mouse.
 data SpaceNavigatorTrack =
   SpaceNavigatorTrack
   {
@@ -129,13 +211,14 @@ data SpaceNavigatorTrack =
   }
     deriving (Eq, Read, Show)
 
-
 instance Default SpaceNavigatorTrack where
   def = SpaceNavigatorTrack (Vector3 0 0 0) (Vector3 0 0 0) False False
 
 
--- TODO: Add different tracking modes.
-trackSpaceNavigator :: (Vector3 GLfloat, Vector3 GLfloat) -> IORef SpaceNavigatorTrack -> SpaceNavigatorCallback
+-- | Track the movement of a SpaceNavigator 3D mouse.
+trackSpaceNavigator :: (Vector3 GLfloat, Vector3 GLfloat) -- ^ The rates at which to push or tilt, respectively, based on the mouse input.
+                    -> IORef SpaceNavigatorTrack          -- ^ A reference to the tracking information.
+                    -> SpaceNavigatorCallback             -- ^ A callback for doing the tracking.
 trackSpaceNavigator (pushRates, _) tracking SpaceNavigatorPush{..} =
   tracking $~!
     \t@SpaceNavigatorTrack{..} ->
@@ -163,19 +246,30 @@ trackSpaceNavigator _ tracking (SpaceNavigatorButton SpaceNavigatorRight action)
 trackSpaceNavigator _ _ (SpaceNavigatorButton (SpaceNavigatorOther _) _) = return ()
 
 
-translate3 :: Num a => Vector3 a -> Vector3 a -> Vector3 a
+-- | Translate a 3-vector.
+translate3 :: Num a
+           => Vector3 a -- ^ The first vector.
+           -> Vector3 a -- ^ The second vector.
+           -> Vector3 a -- ^ The vector sum.
 translate3 dv v = (+) <$> v <*> dv
 
 
-scale3 :: Num a => Vector3 a -> Vector3 a -> Vector3 a
+-- | Scale a 3-vector.
+scale3 :: Num a
+       => Vector3 a -- ^ The first vector.
+       -> Vector3 a -- ^ The second vector.
+       -> Vector3 a -- ^ The vector with the production of the corresponding components.
 scale3 s v = (*) <$> v <*> s
 
 
+-- | Default tracking rates for the SpaceNavigator 3D mouse.
 defaultTracking :: (Vector3 GLfloat, Vector3 GLfloat)
 defaultTracking = (Vector3 0.01 0.01 0.01, Vector3 1 1 1)
 
 
-doTracking :: SpaceNavigatorTrack -> IO ()
+-- | Return an action to track a SpaceNavigator 3D mouse via OpenGL matrices.
+doTracking :: SpaceNavigatorTrack -- ^ The tracking information.
+           -> IO ()               -- ^ An action to track the mouse.
 doTracking SpaceNavigatorTrack{..} =
   do
     let

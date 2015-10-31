@@ -1,4 +1,19 @@
-module Main where
+{-|
+Module      :  Main
+Copyright   :  (c) 2015 Brian W Bush
+License     :  MIT
+Maintainer  :  Brian W Bush <consult@brianwbush.info>
+Stability   :  Stable
+Portability :  Portable
+
+Example application illustrating obtaining input from and tracking a SpaceNavigator \<<http://www.3dconnexion.com/products/spacemouse/spacenavigator.html>\>, or a 3D mouse compatible with its protocols.
+-}
+
+
+module Main (
+  -- * Entry Point
+  main
+) where
 
 
 import Data.Default (def)
@@ -8,6 +23,7 @@ import Graphics.UI.GLUT (DisplayCallback, DisplayMode(..), ReshapeCallback, crea
 import Graphics.UI.SpaceNavigator (SpaceNavigatorTrack(..), defaultQuantization, defaultTracking, doTracking, quantizeSpaceNavigator, spaceNavigatorCallback, trackSpaceNavigator)
 
 
+-- | The main action.
 main :: IO ()
 main =
   do
@@ -19,6 +35,7 @@ main =
     dispatch arguments
 
 
+-- | Respond to the window being created or reshaped.
 reshape :: ReshapeCallback
 reshape (Size w h) = 
   do
@@ -29,6 +46,7 @@ reshape (Size w h) =
     matrixMode $=! Modelview 0
 
 
+-- | Respond to command-line arguments.
 dispatch :: [String] -> IO ()
 
 dispatch ["raw"] =
@@ -57,7 +75,7 @@ dispatch ["track"] =
 
 dispatch ["track", pushThreshold, tiltThreshold] =
   do
-    tracking <- newIORef $ def {spaceNavigatorPosition = Vector3 0 0 0.5}
+    tracking <- newIORef $ def {spaceNavigatorPosition = Vector3 0 0 0}
     spaceNavigatorCallback $=! Just
       (
         quantizeSpaceNavigator (read pushThreshold, read tiltThreshold)
@@ -79,6 +97,7 @@ dispatch _ =
     putStrLn "  opengl-spacenavigator track [pushThreshold tiltThreshold]     : prints 6D tracking based on data from SpaceNavigator"
 
 
+-- | The display callback.
 display :: Maybe (IORef SpaceNavigatorTrack) -> DisplayCallback
 display (Just tracking) =
   do
@@ -139,5 +158,6 @@ display Nothing =
     swapBuffers
 
 
+-- | Make coordinates into a vertex.
 vertex3f :: (GLfloat, GLfloat, GLfloat) -> IO ()
 vertex3f (x, y, z) = vertex $ Vertex3 x y z
