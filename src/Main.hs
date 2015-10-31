@@ -3,7 +3,7 @@ module Main where
 
 import Data.Default (def)
 import Data.IORef (IORef, newIORef)
-import Graphics.Rendering.OpenGL (ClearBuffer(..), Color3(..), ComparisonFunction(Less), GLfloat, Position(..), PrimitiveMode(..), Size(..), Vector3(..), Vertex3(..), ($=), ($=!), clear, color, depthFunc, get, loadIdentity, preservingMatrix, renderPrimitive, rotate, translate, vertex, viewport)
+import Graphics.Rendering.OpenGL (ClearBuffer(..), Color3(..), ComparisonFunction(Less), GLfloat, MatrixMode(Modelview, Projection), Position(..), PrimitiveMode(..), Size(..), Vector3(..), Vertex3(..), ($=), ($=!), clear, color, depthFunc, flush, frustum, get, loadIdentity, matrixMode, preservingMatrix, renderPrimitive, rotate, translate, vertex, viewport)
 import Graphics.UI.GLUT (DisplayCallback, DisplayMode(..), ReshapeCallback, createWindow, displayCallback, getArgsAndInitialize, idleCallback, initialDisplayMode, mainLoop, postRedisplay, reshapeCallback, swapBuffers)
 import Graphics.UI.SpaceNavigator (SpaceNavigatorTrack(..), defaultQuantization, defaultTracking, doTracking, quantizeSpaceNavigator, spaceNavigatorCallback, trackSpaceNavigator)
 
@@ -21,7 +21,12 @@ main =
 
 reshape :: ReshapeCallback
 reshape (Size w h) = 
-  viewport $= (Position 0 0, Size (minimum [w, h]) (minimum[w, h]))
+  do
+    viewport $= (Position 0 0, Size (minimum [w, h]) (minimum[w, h]))
+    matrixMode $=! Projection
+    loadIdentity
+    frustum (-0.4) 0.4 (-0.4) 0.4 1 6
+    matrixMode $=! Modelview 0
 
 
 dispatch :: [String] -> IO ()
@@ -78,7 +83,7 @@ display :: Maybe (IORef SpaceNavigatorTrack) -> DisplayCallback
 display (Just tracking) =
   do
     let
-      (u, v, w) = (0.03, 0.06, 0.18) :: (GLfloat, GLfloat, GLfloat)
+      (u, v, w) = (0.03, 0.06, -0.18) :: (GLfloat, GLfloat, GLfloat)
       p0 = ( 0,  0, w)
       p1 = (-u, -u, 0)
       p2 = ( u, -u, 0)
@@ -86,6 +91,8 @@ display (Just tracking) =
     tracking' <- get tracking
     clear [ColorBuffer, DepthBuffer]
     loadIdentity
+    rotate 10 $ Vector3 1 2 (0 :: GLfloat)
+    translate $ Vector3 0.5 (-0.2) (-3.5 :: GLfloat)
     preservingMatrix $ do
       doTracking tracking'
       color $ Color3 1.0 0.4 (0.5 :: GLfloat)
@@ -108,25 +115,27 @@ display (Just tracking) =
         , p2, p0
         , p3, p0
         ]
-    display Nothing
+    color $ Color3 0.5 1.0 (0.4 :: GLfloat)
+    preservingMatrix $
+      renderPrimitive Lines
+        $ mapM_ vertex3f
+        $ concat
+        [
+          [
+            (2 * u' - 1, 2 * v' - 1,       -0.8), (2 * u' - 1, 2 * v' - 1,        0.8)
+          , (2 * u' - 1,       -0.8, 2 * v' - 1), (2 * u' - 1,        0.8, 2 * v' - 1)
+          , (      -0.8, 2 * u' - 1, 2 * v' - 1), (       0.8, 2 * u' - 1, 2 * v' - 1)
+          ]
+        |
+          u' <- [0.1,0.2..0.9]
+        , v' <- [0.1,0.2..0.9]
+        ]
+    flush
+    swapBuffers
+
 display Nothing =
   do
-    color $ Color3 0.5 1.0 (0.4 :: GLfloat)
-    rotate 5 $ Vector3 1 2 (0 :: GLfloat)
-    translate $ Vector3 0.04 0.08 (0 :: GLfloat)
-    renderPrimitive Lines
-      $ mapM_ vertex3f
-      $ concat
-      [
-        [
-          (2 * u - 1, 2 * v - 1, 0.1), (2 * u - 1, 2 * v - 1, 0.9)
-        , (2 * u - 1, -0.8     , v  ), (2 * u - 1, 0.8      , v  )
-        , (-0.8     , 2 * u - 1, v  ), (0.8      , 2 * u - 1, v  )
-        ]
-      |
-        u <- [0.1,0.2..0.9]
-      , v <- [0.1,0.2..0.9]
-      ]
+    clear [ColorBuffer, DepthBuffer]
     swapBuffers
 
 

@@ -134,18 +134,19 @@ instance Default SpaceNavigatorTrack where
   def = SpaceNavigatorTrack (Vector3 0 0 0) (Vector3 0 0 0) False False
 
 
+-- TODO: Add different tracking modes.
 trackSpaceNavigator :: (Vector3 GLfloat, Vector3 GLfloat) -> IORef SpaceNavigatorTrack -> SpaceNavigatorCallback
 trackSpaceNavigator (pushRates, _) tracking SpaceNavigatorPush{..} =
   tracking $~!
     \t@SpaceNavigatorTrack{..} ->
       t {
-          spaceNavigatorPosition = (pushRates `scale3` Vector3 pushRightward pushUpward (- pushBackward)) `translate3` spaceNavigatorPosition
+          spaceNavigatorPosition = (pushRates `scale3` Vector3 pushRightward pushUpward pushBackward) `translate3` spaceNavigatorPosition
         }
 trackSpaceNavigator (_, tiltRates) tracking SpaceNavigatorTilt{..} =
   tracking $~!
     \t@SpaceNavigatorTrack{..} ->
       t {
-          spaceNavigatorAngles = (tiltRates `scale3` Vector3 (-tiltRightward) tiltClockwise tiltForward) `translate3` spaceNavigatorAngles
+          spaceNavigatorAngles = (tiltRates `scale3` Vector3 (-tiltRightward) (-tiltClockwise) (-tiltForward)) `translate3` spaceNavigatorAngles
         }
 trackSpaceNavigator _ tracking (SpaceNavigatorButton SpaceNavigatorLeft action) =
   tracking $~!
