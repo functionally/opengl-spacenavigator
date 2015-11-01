@@ -76,6 +76,11 @@ module Graphics.UI.SpaceNavigator (
 , track
 , doTracking
 , doTracking'
+-- * Viewing
+, doPilotView
+, doPilotView'
+, doPolarView
+, doPolarView'
 ) where
 
 
@@ -314,11 +319,11 @@ doTracking :: Track -- ^ The tracking information.
 doTracking Track{..} =
   do
     let
-      Vector3 alpha beta gamma = trackOrientation
+      Vector3 yaw pitch roll = trackOrientation
     translate trackPosition
-    rotate gamma $ Vector3 1 0 0
-    rotate beta  $ Vector3 0 1 0
-    rotate alpha $ Vector3 0 0 1
+    rotate roll  $ Vector3 1 0 0
+    rotate pitch $ Vector3 0 1 0
+    rotate yaw   $ Vector3 0 0 1
 
 
 -- | Return an action to track a SpaceNavigator 3D mouse via OpenGL matrices.
@@ -327,3 +332,51 @@ doTracking Track{..} =
 doTracking' :: IORef Track -- ^ A reference to the tracking information.
             -> IO ()       -- ^ An action to track the mouse.
 doTracking' = (doTracking =<<) . get
+
+
+-- | Return an action to create a \"pilot-eye\" view from tracking a SpaceNavigator 3D mouse via OpenGL matrices.
+--
+-- This simply calls @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, then the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward, finalling calling @glTranslate@ on the negated position.
+doPilotView :: Track -- ^ The tracking information.
+            -> IO () -- ^ An action to set the view.
+doPilotView Track{..} =
+  do
+    let
+      Vector3 x y z = trackPosition
+      Vector3 heading elevation bank = trackOrientation
+    rotate bank      $ Vector3 1 0 0
+    rotate elevation $ Vector3 0 1 0
+    rotate heading   $ Vector3 0 0 1
+    translate $ Vector3 (-x) (-y) (-z)
+
+
+-- | Return an action to create a \"pilot-eye\" view from tracking a SpaceNavigator 3D mouse via OpenGL matrices.
+--
+-- This simply calls @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, then the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward, finalling calling @glTranslate@ on the negated position.
+doPilotView' :: IORef Track -- ^ A reference to the tracking information.
+             -> IO ()       -- ^ An action to set the view.
+doPilotView' = (doPilotView =<<) . get
+
+
+-- | Return an action to create a \"polar\" view from tracking a SpaceNavigator 3D mouse via OpenGL matrices.
+--
+-- This simply calls @glTranslate@ on along the /z/-axis negative norm of the position, followed by calls to @glRotate@ for the negated third Euler angle (roll\/bank) around the /x/-axis, the negate second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
+doPolarView :: Track -- ^ The tracking information.
+            -> IO () -- ^ An action to set the view.
+doPolarView Track{..} =
+  do
+    let
+      Vector3 x y z = trackPosition
+      Vector3 azimuth elevation twist = trackOrientation
+    translate $ Vector3 0 0 (- sqrt (x^(2 :: Int) + y^(2 :: Int) + z^(2 :: Int)))
+    rotate (-twist)     $ Vector3 0 0 1
+    rotate (-elevation) $ Vector3 1 0 0
+    rotate azimuth      $ Vector3 0 0 1
+
+
+-- | Return an action to create a \"polar\" view from tracking a SpaceNavigator 3D mouse via OpenGL matrices.
+--
+-- This simply calls @glTranslate@ on along the /z/-axis negative norm of the position, followed by calls to @glRotate@ for the negated third Euler angle (roll\/bank) around the /x/-axis, the negate second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
+doPolarView' :: IORef Track -- ^ A reference to the tracking information.
+             -> IO ()       -- ^ An action to set the view.
+doPolarView' = (doPolarView =<<) . get
