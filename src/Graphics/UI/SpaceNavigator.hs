@@ -216,11 +216,12 @@ data Track =
   , trackOrientation :: Vector3 GLfloat -- ^ The Euler angles for the orientation: yaw\/heading, pitch\/elevation, and roll\/bank, relative an initial orientation where the /-z/ axis is forward: see \<<https://en.wikipedia.org/wiki/Euler_angles#Alternative_names>\>.
   , trackLeftPress   :: Bool            -- ^ Whether the left button is pressed.
   , trackRightPress  :: Bool            -- ^ Whether the right button is pressed.
+  , trackLastPressed :: Maybe Button    -- ^ The last button pressed, if any.
   }
     deriving (Eq, Read, Show)
 
 instance Default Track where
-  def = Track def (Vector3 0 0 0) (Vector3 0 0 0) False False
+  def = Track def (Vector3 0 0 0) (Vector3 0 0 0) False False Nothing
 
 
 -- | The mode for tracking a SpaceNavigator 3D mouse.
@@ -279,15 +280,22 @@ track _ tracking (Button ButtonLeft action) =
   tracking $~!
     \t ->
       t {
-          trackLeftPress = action == ButtonPress
+          trackLeftPress   = action == ButtonPress
+        , trackLastPressed = Just ButtonLeft
         }
 track _ tracking (Button ButtonRight action) =
   tracking $~!
     \t ->
       t {
           trackRightPress = action == ButtonPress
+        , trackLastPressed = Just ButtonRight
         }
-track _ _ (Button (ButtonOther _) _) = return ()
+track _ tracking (Button b _) =
+  tracking $~!
+    \t ->
+      t {
+          trackLastPressed = Just b
+        }
 
 
 -- | Translate a 3-vector.
