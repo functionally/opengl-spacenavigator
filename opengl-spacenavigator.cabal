@@ -28,6 +28,7 @@ library
                ,    GLUT         >= 2.4
                ,    OpenGL       >= 2.8
   hs-source-dirs:   src
+  ghc-options:      -Wall
   default-language: Haskell2010
 
 executable opengl-spacenavigator
@@ -37,4 +38,5 @@ executable opengl-spacenavigator
                ,    GLUT
                ,    OpenGL
   hs-source-dirs:   src
+  ghc-options:      -Wall
   default-language: Haskell2010
