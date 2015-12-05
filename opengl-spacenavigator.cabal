@@ -1,5 +1,5 @@
 name:                opengl-spacenavigator
-version:             0.1.4.2
+version:             0.1.4.3
 synopsis:            Library and example for using a SpaceNavigator-compatible 3-D mouse with OpenGL
 description:         This package contains functions for managing input from a SpaceNavigator \<<http://www.3dconnexion.com/products/spacemouse/spacenavigator.html>\>, or a 3D mouse compatible with its protocols.  OpenGL callbacks are provided, along with utilities for quantizing the input from the mouse or tracking its six degrees of freedom.
 license:             MIT
@@ -23,10 +23,10 @@ source-repository head
  
 library
   exposed-modules:  Graphics.UI.SpaceNavigator
-  build-depends:    base         >= 4.6 && < 5
+  build-depends:    base         >= 4.8.1 && < 5
                ,    data-default >= 0.5.3
-               ,    GLUT         >= 2.4
-               ,    OpenGL       >= 2.8
+               ,    GLUT         >= 2.7.0.1
+               ,    OpenGL       >= 2.12.0.1
   hs-source-dirs:   src
   ghc-options:      -Wall
   default-language: Haskell2010

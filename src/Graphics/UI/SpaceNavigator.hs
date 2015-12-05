@@ -84,7 +84,6 @@ module Graphics.UI.SpaceNavigator (
 ) where
 
 
-import Control.Applicative ((<*>), (<$>))
 import Control.Monad (when)
 import Data.Default (Default(..))
 import Data.IORef (IORef)
