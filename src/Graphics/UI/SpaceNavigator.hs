@@ -85,10 +85,13 @@ module Graphics.UI.SpaceNavigator (
 
 
 import Control.Monad (when)
+import Data.Binary (Binary)
 import Data.Default (Default(..))
 import Data.IORef (IORef)
 import Graphics.Rendering.OpenGL (GLfloat, SettableStateVar, Vector3(..), ($=!), ($~!), get, makeSettableStateVar, rotate, translate)
 import Graphics.UI.GLUT (KeyState(..), SpaceballInput(..), spaceballCallback)
+
+import qualified Data.Binary as B (Binary(..))
 
 
 -- | Input received from a SpaceNavigator 3D mouse.
@@ -123,12 +126,20 @@ data Button =
   | ButtonOther Int  -- ^ Neither the left nor the right button.
     deriving (Eq, Read, Show)
 
+instance Enum Button where
+  fromEnum  ButtonLeft     = 0
+  fromEnum  ButtonRight    = 1
+  fromEnum (ButtonOther i) = i
+  toEnum 0 = ButtonLeft
+  toEnum 1 = ButtonRight
+  toEnum i = ButtonOther i
+
 
 -- | Pressing and releasing actions on a SpaceNavigator 3D mouse.
 data ButtonAction =
     ButtonPress   -- ^ The button has been pressed.
   | ButtonRelease -- ^ The button has been released.
-    deriving (Eq, Read, Show)
+    deriving (Enum, Eq, Read, Show)
 
 
 -- | Interpret SpaceBall input as SpaceNavigator input.
@@ -223,6 +234,38 @@ instance Default Track where
   def = Track def (Vector3 0 0 0) (Vector3 0 0 0) False False Nothing
 
 
+instance Binary Track where
+  put Track{..} =
+    do
+      B.put $ fromEnum trackMode
+      B.put $ decodeVector3 trackPosition
+      B.put $ decodeVector3 trackOrientation
+      B.put trackLeftPress
+      B.put trackRightPress
+      B.put $ fromEnum <$> trackLastPressed
+  get =
+    do
+      trackMode <- toEnum <$> B.get
+      trackPosition <- encodeVector3 <$> B.get
+      trackOrientation <- encodeVector3 <$> B.get
+      trackLeftPress <- B.get
+      trackRightPress <- B.get
+      trackLastPressed <- fmap toEnum <$> B.get
+      return Track{..}
+
+
+decodeVector3 :: RealFloat a => Vector3 a -> ((Integer, Int), (Integer, Int), (Integer, Int))
+decodeVector3 (Vector3 x y z) = (decodeFloat x, decodeFloat y, decodeFloat z)
+
+
+encodeVector3 :: RealFloat a => ((Integer, Int), (Integer, Int), (Integer, Int)) -> Vector3 a
+encodeVector3 (x, y, z) = Vector3 (encodeFloat' x) (encodeFloat' y) (encodeFloat' z)
+
+
+encodeFloat' :: RealFloat a => (Integer, Int) -> a
+encodeFloat' = uncurry encodeFloat
+
+
 -- | The mode for tracking a SpaceNavigator 3D mouse.
 --
 -- /Currently only one mode is available, but other modes, such as flying and examining, will be implemented in the future./
@@ -253,7 +296,7 @@ data TrackMode =
   --
   --   [tilt forward] decrement third Euler angle, roll\/bank
   TrackPlatform
-    deriving (Eq, Read, Show)
+    deriving (Enum, Eq, Read, Show)
 
 instance Default TrackMode where
   def = TrackPlatform
