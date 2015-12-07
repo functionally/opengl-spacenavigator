@@ -24,7 +24,7 @@ source-repository head
 library
   exposed-modules:  Graphics.UI.SpaceNavigator
   build-depends:    base         >= 4.8.1 && < 5
-               ,    binary
+               ,    binary       >= 0.7.5
                ,    data-default >= 0.5.3
                ,    GLUT         >= 2.7.0.1
                ,    OpenGL       >= 2.12.0.1
