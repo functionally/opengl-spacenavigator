@@ -121,6 +121,27 @@ data SpaceNavigatorInput a =
       }
       deriving (Eq, Read, Show)
 
+instance Functor SpaceNavigatorInput where
+  fmap f Push{..} =
+    Push
+    {
+      pushRightward = f pushRightward
+    , pushUpward    = f pushUpward
+    , pushBackward  = f pushBackward
+    }
+  fmap f Tilt{..} =
+    Tilt
+    {
+      tiltForward   = f tiltForward
+    , tiltClockwise = f tiltClockwise
+    , tiltRightward = f tiltRightward
+    }
+  fmap _ Button{..} =
+    Button
+    {
+      buttonPress  = buttonPress
+    , buttonAction = buttonAction
+    }
 
 -- | Buttons on a SpaceNavigator 3D mouse.
 data Button =
@@ -235,6 +256,18 @@ data Track a =
   , trackLastPressed :: Maybe Button -- ^ The last button pressed, if any.
   }
     deriving (Eq, Read, Show)
+
+instance Functor Track where
+  fmap f Track{..} =
+    Track
+    {
+      trackMode        =        trackMode
+    , trackPosition    = fmap f trackPosition
+    , trackOrientation = fmap f trackOrientation
+    , trackLeftPress   =        trackLeftPress
+    , trackRightPress  =        trackRightPress
+    , trackLastPressed =        trackLastPressed
+    }
 
 instance Num a => Default (Track a) where
   def = Track def (Vector3 0 0 0) (Vector3 0 0 0) False False Nothing
