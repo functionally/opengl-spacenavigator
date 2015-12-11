@@ -18,9 +18,9 @@ module Main (
 
 import Data.Default (def)
 import Data.IORef (IORef, newIORef)
-import Graphics.Rendering.OpenGL (ClearBuffer(..), Color3(..), ComparisonFunction(Less), GLfloat, MatrixMode(Modelview, Projection), Position(..), PrimitiveMode(..), Size(..), Vector3(..), Vertex3(..), ($=), ($=!), clear, color, depthFunc, flush, frustum, get, loadIdentity, matrixMode, preservingMatrix, renderPrimitive, rotate, translate, vertex, viewport)
+import Graphics.Rendering.OpenGL (ClearBuffer(..), Color3(..), ComparisonFunction(Less), GLfloat, MatrixMode(Modelview, Projection), Position(..), PrimitiveMode(..), SettableStateVar, Size(..), Vector3(..), Vertex3(..), ($=), ($=!), clear, color, depthFunc, flush, frustum, get, loadIdentity, matrixMode, preservingMatrix, renderPrimitive, rotate, translate, vertex, viewport)
 import Graphics.UI.GLUT (DisplayCallback, DisplayMode(..), ReshapeCallback, createWindow, displayCallback, getArgsAndInitialize, idleCallback, initialDisplayMode, mainLoop, postRedisplay, reshapeCallback, swapBuffers)
-import Graphics.UI.SpaceNavigator (Track(..), defaultQuantization, defaultTracking, doTracking', quantize, spaceNavigatorCallback, track)
+import Graphics.UI.SpaceNavigator (SpaceNavigatorCallback, Track(..), defaultQuantization, defaultTracking, doTracking', quantize, spaceNavigatorCallback, track)
 
 
 -- | The main action.
@@ -51,25 +51,25 @@ dispatch :: [String] -> IO ()
 
 dispatch ["raw"] =
   do 
-    spaceNavigatorCallback $=! Just print
+    (spaceNavigatorCallback :: SettableStateVar (Maybe (SpaceNavigatorCallback GLfloat))) $=! Just print
     displayCallback $=! display Nothing
     mainLoop
 
 dispatch ["quantized"] =
   let
-     (pushThreshold, tiltThreshold) = defaultQuantization
+     (pushThreshold, tiltThreshold) = defaultQuantization :: (GLfloat, GLfloat)
   in
     dispatch ["quantized", show pushThreshold, show tiltThreshold]
 
 dispatch ["quantized", pushThreshold, tiltThreshold] =
   do
-    spaceNavigatorCallback $=! Just (quantize (read pushThreshold, read tiltThreshold) print)
+    spaceNavigatorCallback $=! Just (quantize (read pushThreshold, read tiltThreshold :: GLfloat) print)
     displayCallback $=! display Nothing
     mainLoop
 
 dispatch ["track"] =
   let
-     (pushThreshold, tiltThreshold) = defaultQuantization
+     (pushThreshold, tiltThreshold) = defaultQuantization :: (GLfloat, GLfloat)
   in
     dispatch ["track", show pushThreshold, show tiltThreshold]
 
@@ -98,7 +98,7 @@ dispatch _ =
 
 
 -- | The display callback.
-display :: Maybe (IORef Track) -> DisplayCallback
+display :: Maybe (IORef (Track GLfloat)) -> DisplayCallback
 display (Just tracking) =
   do
     let

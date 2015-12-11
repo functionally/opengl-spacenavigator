@@ -56,7 +56,10 @@ This code has been validated with the following configuration of hardware and so
 -}
 
 
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE ExplicitForAll      #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 
 module Graphics.UI.SpaceNavigator (
@@ -88,27 +91,27 @@ import Control.Monad (when)
 import Data.Binary (Binary)
 import Data.Default (Default(..))
 import Data.IORef (IORef)
-import Graphics.Rendering.OpenGL (GLfloat, SettableStateVar, Vector3(..), ($=!), ($~!), get, makeSettableStateVar, rotate, translate)
+import Graphics.Rendering.OpenGL (MatrixComponent, SettableStateVar, Vector3(..), ($=!), ($~!), get, makeSettableStateVar, rotate, translate)
 import Graphics.UI.GLUT (KeyState(..), SpaceballInput(..), spaceballCallback)
 
 import qualified Data.Binary as B (Binary(..))
 
 
 -- | Input received from a SpaceNavigator 3D mouse.
-data SpaceNavigatorInput =
+data SpaceNavigatorInput a =
       -- | The mouse has been pushed.
       Push
       {
-        pushRightward :: GLfloat       -- ^ The amount of rightward push, from -1 to +1.
-      , pushUpward    :: GLfloat       -- ^ The amount of upward push, from -1 to +1.
-      , pushBackward  :: GLfloat       -- ^ The amount of backward push, from -1 to +1.
+        pushRightward :: a       -- ^ The amount of rightward push, from -1 to +1.
+      , pushUpward    :: a       -- ^ The amount of upward push, from -1 to +1.
+      , pushBackward  :: a       -- ^ The amount of backward push, from -1 to +1.
       }
       -- | The mouse has been tilted.
     | Tilt
       {
-        tiltForward   :: GLfloat       -- ^ The amount of forward tilt, from -1 to +1.
-      , tiltClockwise :: GLfloat       -- ^ The amount of clockwise twist, from -1 to +1.
-      , tiltRightward :: GLfloat       -- ^ The amount of rightward tilt, from -1 to +1.
+        tiltForward   :: a       -- ^ The amount of forward tilt, from -1 to +1.
+      , tiltClockwise :: a       -- ^ The amount of clockwise twist, from -1 to +1.
+      , tiltRightward :: a       -- ^ The amount of rightward tilt, from -1 to +1.
       }
       -- | A mouse button has been pressed.
     | Button
@@ -143,8 +146,9 @@ data ButtonAction =
 
 
 -- | Interpret SpaceBall input as SpaceNavigator input.
-interpretSpaceball :: SpaceballInput      -- ^ The SpaceBall input.
-                   -> SpaceNavigatorInput -- ^ The corresponding SpaceNavigator input.
+interpretSpaceball :: Fractional a
+                   => SpaceballInput        -- ^ The SpaceBall input.
+                   -> SpaceNavigatorInput a -- ^ The corresponding SpaceNavigator input.
 interpretSpaceball (SpaceballMotion rightward upward forward) =
   Push
   {
@@ -173,23 +177,25 @@ interpretSpaceball (SpaceballButton button keyState) =
 
 
 -- | A callback for input from the SpaceNavigator 3D mouse.
-type SpaceNavigatorCallback = SpaceNavigatorInput -> IO ()
+type SpaceNavigatorCallback a = SpaceNavigatorInput a -> IO ()
 
 
 -- | Register the callback for input from the SpaceNavigator 3D mouse.
-spaceNavigatorCallback :: SettableStateVar (Maybe SpaceNavigatorCallback)
+spaceNavigatorCallback :: forall a . Fractional a
+                       => SettableStateVar (Maybe (SpaceNavigatorCallback a))
 spaceNavigatorCallback =
   makeSettableStateVar setSpaceNavigatorCallback
     where
-      setSpaceNavigatorCallback :: Maybe SpaceNavigatorCallback -> IO ()
+      setSpaceNavigatorCallback :: Maybe (SpaceNavigatorCallback a) -> IO ()
       setSpaceNavigatorCallback Nothing         = spaceballCallback $=! Nothing
       setSpaceNavigatorCallback (Just callback) = spaceballCallback $=! Just (callback . interpretSpaceball)
 
 
 -- | Quantize the input from a SpaceNavigator 3D mouse according to whether the input exceeds a threshold.  The quantized input is -1, +1, or 0, depending on whether a threshold is exceeded.
-quantize:: (GLfloat, GLfloat)     -- ^ The thresholds for pushing and titling, respectively, between 0 and +1.
-        -> SpaceNavigatorCallback -- ^ The callback for the mouse.
-        -> SpaceNavigatorCallback -- ^ A callback that receives quantized input {-1, 0, +1}.
+quantize:: RealFloat a
+        => (a, a)                   -- ^ The thresholds for pushing and titling, respectively, between 0 and +1.
+        -> SpaceNavigatorCallback a -- ^ The callback for the mouse.
+        -> SpaceNavigatorCallback a -- ^ A callback that receives quantized input {-1, 0, +1}.
 quantize (pushThreshold, tiltThreshold) callback input =
   do
     let
@@ -213,28 +219,28 @@ quantize (pushThreshold, tiltThreshold) callback input =
 
 
 -- | A default quantization for the SpaceNavigator 3D mouse.
-defaultQuantization :: (GLfloat, GLfloat)
+defaultQuantization :: RealFloat a => (a, a)
 defaultQuantization = (0.2, 0.1)
 
 
 -- | Tracking information for a SpaceNavigator 3D mouse.
-data Track =
+data Track a =
   Track
   {
-    trackMode        :: TrackMode       -- ^ The tracking mode.
-  , trackPosition    :: Vector3 GLfloat -- ^ The coordinates for the position.
-  , trackOrientation :: Vector3 GLfloat -- ^ The Euler angles for the orientation: yaw\/heading, pitch\/elevation, and roll\/bank, relative an initial orientation where the /-z/ axis is forward: see \<<https://en.wikipedia.org/wiki/Euler_angles#Alternative_names>\>.
-  , trackLeftPress   :: Bool            -- ^ Whether the left button is pressed.
-  , trackRightPress  :: Bool            -- ^ Whether the right button is pressed.
-  , trackLastPressed :: Maybe Button    -- ^ The last button pressed, if any.
+    trackMode        :: TrackMode    -- ^ The tracking mode.
+  , trackPosition    :: Vector3 a    -- ^ The coordinates for the position.
+  , trackOrientation :: Vector3 a    -- ^ The Euler angles for the orientation: yaw\/heading, pitch\/elevation, and roll\/bank, relative an initial orientation where the /-z/ axis is forward: see \<<https://en.wikipedia.org/wiki/Euler_angles#Alternative_names>\>.
+  , trackLeftPress   :: Bool         -- ^ Whether the left button is pressed.
+  , trackRightPress  :: Bool         -- ^ Whether the right button is pressed.
+  , trackLastPressed :: Maybe Button -- ^ The last button pressed, if any.
   }
     deriving (Eq, Read, Show)
 
-instance Default Track where
+instance Num a => Default (Track a) where
   def = Track def (Vector3 0 0 0) (Vector3 0 0 0) False False Nothing
 
 
-instance Binary Track where
+instance RealFloat a => Binary (Track a) where
   put Track{..} =
     do
       B.put $ fromEnum trackMode
@@ -303,9 +309,10 @@ instance Default TrackMode where
 
 
 -- | Track the movement of a SpaceNavigator 3D mouse.
-track :: (Vector3 GLfloat, Vector3 GLfloat) -- ^ The rates at which to push or tilt, respectively, based on the mouse input.
-      -> IORef Track                        -- ^ A reference to the tracking information.
-      -> SpaceNavigatorCallback             -- ^ A callback for doing the tracking.
+track :: Num a
+      => (Vector3 a, Vector3 a)   -- ^ The rates at which to push or tilt, respectively, based on the mouse input.
+      -> IORef (Track a)          -- ^ A reference to the tracking information.
+      -> SpaceNavigatorCallback a -- ^ A callback for doing the tracking.
 track (pushRates, _) tracking Push{..} =
   tracking $~!
     \t@Track{..} ->
@@ -357,15 +364,16 @@ scale3 s v = (*) <$> v <*> s
 
 
 -- | Default tracking rates for the SpaceNavigator 3D mouse.
-defaultTracking :: (Vector3 GLfloat, Vector3 GLfloat)
+defaultTracking :: RealFloat a => (Vector3 a, Vector3 a)
 defaultTracking = (Vector3 0.01 0.01 0.01, Vector3 1 1 1)
 
 
 -- | Return an action to track a SpaceNavigator 3D mouse via OpenGL matrices.
 --
 -- This simply calls @glTranslate@ on the position, followed by calls to @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
-doTracking :: Track -- ^ The tracking information.
-           -> IO () -- ^ An action to track the mouse.
+doTracking :: (MatrixComponent a, Num a)
+           => Track a -- ^ The tracking information.
+           -> IO ()   -- ^ An action to track the mouse.
 doTracking Track{..} =
   do
     let
@@ -379,16 +387,18 @@ doTracking Track{..} =
 -- | Return an action to track a SpaceNavigator 3D mouse via OpenGL matrices.
 --
 -- This simply calls @glTranslate@ on the position, followed by calls to @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
-doTracking' :: IORef Track -- ^ A reference to the tracking information.
-            -> IO ()       -- ^ An action to track the mouse.
+doTracking' :: (MatrixComponent a, Num a)
+            => IORef (Track a) -- ^ A reference to the tracking information.
+            -> IO ()           -- ^ An action to track the mouse.
 doTracking' = (doTracking =<<) . get
 
 
 -- | Return an action to create a \"pilot-eye\" view from tracking a SpaceNavigator 3D mouse via OpenGL matrices.
 --
 -- This simply calls @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, then the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward, finalling calling @glTranslate@ on the negated position.
-doPilotView :: Track -- ^ The tracking information.
-            -> IO () -- ^ An action to set the view.
+doPilotView :: (MatrixComponent a, Num a)
+            => Track a -- ^ The tracking information.
+            -> IO ()   -- ^ An action to set the view.
 doPilotView Track{..} =
   do
     let
@@ -403,16 +413,18 @@ doPilotView Track{..} =
 -- | Return an action to create a \"pilot-eye\" view from tracking a SpaceNavigator 3D mouse via OpenGL matrices.
 --
 -- This simply calls @glRotate@ for the third Euler angle (roll\/bank) around the /x/-axis, then the second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward, finalling calling @glTranslate@ on the negated position.
-doPilotView' :: IORef Track -- ^ A reference to the tracking information.
-             -> IO ()       -- ^ An action to set the view.
+doPilotView' :: (MatrixComponent a, Num a)
+             => IORef (Track a) -- ^ A reference to the tracking information.
+             -> IO ()           -- ^ An action to set the view.
 doPilotView' = (doPilotView =<<) . get
 
 
 -- | Return an action to create a \"polar\" view from tracking a SpaceNavigator 3D mouse via OpenGL matrices.
 --
 -- This simply calls @glTranslate@ on along the /z/-axis negative norm of the position, followed by calls to @glRotate@ for the negated third Euler angle (roll\/bank) around the /x/-axis, the negate second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
-doPolarView :: Track -- ^ The tracking information.
-            -> IO () -- ^ An action to set the view.
+doPolarView :: (MatrixComponent a, RealFloat a)
+            => Track a -- ^ The tracking information.
+            -> IO ()   -- ^ An action to set the view.
 doPolarView Track{..} =
   do
     let
@@ -427,6 +439,7 @@ doPolarView Track{..} =
 -- | Return an action to create a \"polar\" view from tracking a SpaceNavigator 3D mouse via OpenGL matrices.
 --
 -- This simply calls @glTranslate@ on along the /z/-axis negative norm of the position, followed by calls to @glRotate@ for the negated third Euler angle (roll\/bank) around the /x/-axis, the negate second (pitch\/elevation) around the /y/-axis, and then the first (yaw\/heading) around the /z/-axis, relative to an initial orientation where the /-z/ axis is forward.
-doPolarView' :: IORef Track -- ^ A reference to the tracking information.
-             -> IO ()       -- ^ An action to set the view.
+doPolarView' :: (MatrixComponent a, RealFloat a)
+             => IORef (Track a) -- ^ A reference to the tracking information.
+             -> IO ()           -- ^ An action to set the view.
 doPolarView' = (doPolarView =<<) . get
