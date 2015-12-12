@@ -102,22 +102,22 @@ data SpaceNavigatorInput a =
       -- | The mouse has been pushed.
       Push
       {
-        pushRightward :: a       -- ^ The amount of rightward push, from -1 to +1.
-      , pushUpward    :: a       -- ^ The amount of upward push, from -1 to +1.
-      , pushBackward  :: a       -- ^ The amount of backward push, from -1 to +1.
+        pushRightward :: a -- ^ The amount of rightward push, from -1 to +1.
+      , pushUpward    :: a -- ^ The amount of upward push, from -1 to +1.
+      , pushBackward  :: a -- ^ The amount of backward push, from -1 to +1.
       }
       -- | The mouse has been tilted.
     | Tilt
       {
-        tiltForward   :: a       -- ^ The amount of forward tilt, from -1 to +1.
-      , tiltClockwise :: a       -- ^ The amount of clockwise twist, from -1 to +1.
-      , tiltRightward :: a       -- ^ The amount of rightward tilt, from -1 to +1.
+        tiltForward   :: a -- ^ The amount of forward tilt, from -1 to +1.
+      , tiltClockwise :: a -- ^ The amount of clockwise twist, from -1 to +1.
+      , tiltRightward :: a -- ^ The amount of rightward tilt, from -1 to +1.
       }
       -- | A mouse button has been pressed.
     | Button
       {
-        buttonPress  :: Button         -- ^ Which button has been pressed.
-      , buttonAction :: ButtonAction   -- ^ Whether the button has been pressed or released.
+        buttonPress  :: Button       -- ^ Which button has been pressed.
+      , buttonAction :: ButtonAction -- ^ Whether the button has been pressed or released.
       }
       deriving (Eq, Read, Show)
 
@@ -145,9 +145,9 @@ instance Functor SpaceNavigatorInput where
 
 -- | Buttons on a SpaceNavigator 3D mouse.
 data Button =
-    ButtonLeft       -- ^ The left button.
-  | ButtonRight      -- ^ The right button.
-  | ButtonOther Int  -- ^ Neither the left nor the right button.
+    ButtonLeft      -- ^ The left button.
+  | ButtonRight     -- ^ The right button.
+  | ButtonOther Int -- ^ Neither the left nor the right button.
     deriving (Eq, Read, Show)
 
 instance Enum Button where
