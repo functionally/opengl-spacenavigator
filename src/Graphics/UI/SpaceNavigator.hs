@@ -192,9 +192,11 @@ interpretSpaceball (SpaceballButton button keyState) =
                      0 -> ButtonLeft
                      1 -> ButtonRight
                      i -> ButtonOther i
-  , buttonAction = case keyState of
-                     Down -> ButtonPress
-                     Up   -> ButtonRelease
+  , buttonAction = if reinterpret
+                     then ButtonPress -- FIXME: Darwin fails to unmarshall the key state, so we avoid reading it.
+                     else case keyState of
+                            Down -> ButtonPress
+                            Up   -> ButtonRelease
   }
 
 
@@ -366,16 +368,20 @@ track (_, tiltRates) tracking Tilt{..} =
         }
 track _ tracking (Button ButtonLeft action) =
   tracking $~!
-    \t ->
+    \t@Track{..} ->
       t {
-          trackLeftPress   = action == ButtonPress
+          trackLeftPress   = if reinterpret
+                               then not trackLeftPress    -- FIXME: Darwin fails to unmarshall the key state, so we avoid reading it.
+                               else action == ButtonPress
         , trackLastPressed = Just ButtonLeft
         }
 track _ tracking (Button ButtonRight action) =
   tracking $~!
-    \t ->
+    \t@Track{..} ->
       t {
-          trackRightPress = action == ButtonPress
+          trackRightPress  = if reinterpret
+                               then not trackRightPress   -- FIXME: Darwin fails to unmarshall the key state, so we avoid reading it.
+                               else action == ButtonPress
         , trackLastPressed = Just ButtonRight
         }
 track _ tracking (Button b _) =
@@ -384,7 +390,6 @@ track _ tracking (Button b _) =
       t {
           trackLastPressed = Just b
         }
-
 
 -- | Translate a 3-vector.
 translate3 :: Num a
