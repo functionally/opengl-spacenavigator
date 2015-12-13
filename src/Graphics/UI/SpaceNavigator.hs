@@ -93,6 +93,7 @@ import Data.Default (Default(..))
 import Data.IORef (IORef)
 import Graphics.Rendering.OpenGL (MatrixComponent, SettableStateVar, Vector3(..), ($=!), ($~!), get, makeSettableStateVar, rotate, translate)
 import Graphics.UI.GLUT (KeyState(..), SpaceballInput(..), spaceballCallback)
+import System.Info (os)
 
 import qualified Data.Binary as B (Binary(..))
 
@@ -173,21 +174,21 @@ interpretSpaceball :: Fractional a
 interpretSpaceball (SpaceballMotion rightward upward forward) =
   Push
   {
-    pushRightward =   fromIntegral rightward / 1000
-  , pushUpward    =   fromIntegral upward    / 1000
-  , pushBackward  = - fromIntegral forward   / 1000
+    pushRightward =   fromIntegral                                     rightward  / 1000
+  , pushUpward    =   fromIntegral (if reinterpret then - forward else upward   ) / 1000
+  , pushBackward  = - fromIntegral (if reinterpret then - upward  else forward  ) / 1000
   }
 interpretSpaceball (SpaceballRotation backward counterClockwise rightward) =
   Tilt
   {
-    tiltForward   = - fromIntegral backward         / 1800
-  , tiltClockwise = - fromIntegral counterClockwise / 1800
-  , tiltRightward =   fromIntegral rightward        / 1800
+    tiltForward   = - fromIntegral                                              backward          / 1800
+  , tiltClockwise = - fromIntegral (if reinterpret then - rightward        else counterClockwise) / 1800
+  , tiltRightward =   fromIntegral (if reinterpret then - counterClockwise else rightward       ) / 1800
   }
 interpretSpaceball (SpaceballButton button keyState) =
   Button
   {
-    buttonPress  = case button of
+    buttonPress  = case (if reinterpret then button - 1 else button) of
                      0 -> ButtonLeft
                      1 -> ButtonRight
                      i -> ButtonOther i
@@ -195,6 +196,11 @@ interpretSpaceball (SpaceballButton button keyState) =
                      Down -> ButtonPress
                      Up   -> ButtonRelease
   }
+
+
+-- | Whether to reinterpret joystick input because of OS dependency.
+reinterpret :: Bool
+reinterpret = os == "darwin"
 
 
 -- | A callback for input from the SpaceNavigator 3D mouse.
